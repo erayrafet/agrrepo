@@ -8,44 +8,47 @@ pkgver=6.1.43.r1266133.ga209c7aba62f
 pkgrel=1
 arch=('aarch64')
 license=('GPL2')
-_url="github.com/erayrafet"
-url="https://$url"
+url="https://github.com/erayrafet"
 _desc="with patches picked by Joshua Riek focusing on RK3588" 
-makedepends=('cpio' 'xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'dtc' 'gitweb-dlagent')
+makedepends=('cpio' 'xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'dtc')
 options=('!strip')
 _srcname='linux-rockchip'
-_url_git="gitweb-dlagent://${_url}/${_srcname}.git#branch=rk-6.1-rkr1-panthor-v6"
-DLAGENTS+=('gitweb-dlagent::/usr/bin/gitweb-dlagent sync %u')
 source=(
   "$_url_git"
   'localversion.config'
   'extlinux.panthor.template'
+  "https://raw.githubusercontent.com/armbian/build/main/patch/kernel/rockchip-rk3588-edge/board-khadas-edge2-mcu.patch"
 )
 
 sha512sums=(
   'SKIP'
+  '2dc6b0ba8f7dbf19d2446c5c5f1823587de89f4e28e9595937dd51a87755099656f2acec50e3e2546ea633ad1bfd1c722e0c2b91eef1d609103d8abdc0a7cbaf'
   '9ec050e491788b8428395fc28b6d8486d64d314d8b85e97d8df30a35bd7b85d2ed84682e7b2eaed7b471b73aa51119e360761a099719eed9952713e0caba17ce'
-  '08537d38426c0bf4f00edcebd7224065f91e0dfce3b5d909f97d3187076297f63e7338b7ba420d70046939c12fbc10e31141602b6bb869b1904ed21fb5a19a05'
+  "SKIP"
 )
 
 pkgver() {
   cd "${_srcname}"
-  printf "%s.%s%s%s.r%s.%s" \
+  printf "%s.%s%s%s.r%s.g%s" \
     "$(grep '^VERSION = ' Makefile|awk -F' = ' '{print $2}')" \
     "$(grep '^PATCHLEVEL = ' Makefile|awk -F' = ' '{print $2}')" \
     "$(grep '^SUBLEVEL = ' Makefile|awk -F' = ' '{print $2}'|grep -vE '^0$'|sed 's/.*/.\0/')" \
     "$(grep '^EXTRAVERSION = ' Makefile|awk -F' = ' '{print $2}'|tr -d -|sed -E 's/rockchip[0-9]+//')" \
-    "$(gitweb-dlagent version ${_url_git} --pattern \{revision\})" \
-    "$(gitweb-dlagent version ${_url_git} --pattern \{commit:.12s\})"
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=8 HEAD)"
 }
 
 prepare() {
   cd "${_srcname}"
+
+  echo "Patching kernel (temporary patches)..."
+  # For Khadas Edge 2
+  patch -p1 < ../board-khadas-edge2-mcu.patch
   
   rm -rf localversion*
   echo "Setting version..."
   echo "-rockchip" > localversion.10-pkgname
-  echo "${pkgbase#linux}" > localversion.20-pkgname
+  #echo "-r$(git rev-list --count HEAD)" > localversion.20-revision
 
   # this is only for local builds so there is no need to integrity check. (if needed)
   for p in ../../custom/*.patch; do
@@ -73,14 +76,12 @@ _package() {
   pkgdesc="The ${_srcname} kernel, ${_desc}"
   depends=('coreutils' 'kmod' 'initramfs')
   optdepends=('wireless-regdb: to set the correct wireless channels of your country')
+  backup=("etc/mkinitcpio.d/${pkgbase}.preset")
 
   cd "${_srcname}"
   
   # install dtbs
   make INSTALL_DTBS_PATH="${pkgdir}/boot/dtbs/${pkgbase}" dtbs_install
-  
-  # install extlinux template
-  install -Dm644 ../extlinux.panthor.template "$pkgdir/boot/extlinux/extlinux.panthor.template"
 
   # install modules
   make INSTALL_MOD_PATH="${pkgdir}/usr" INSTALL_MOD_STRIP=1 modules_install
@@ -95,6 +96,9 @@ _package() {
   # used by mkinitcpio to name the kernel
   echo "${pkgbase}" | install -D -m 644 /dev/stdin "${_dir_module}/pkgbase"
 
+  # install mkinitcpio preset file
+  sed "s|%PKGBASE%|${pkgbase}|g" ../linux.preset |
+    install -Dm644 /dev/stdin "${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
 }
 
 _package-headers() {
