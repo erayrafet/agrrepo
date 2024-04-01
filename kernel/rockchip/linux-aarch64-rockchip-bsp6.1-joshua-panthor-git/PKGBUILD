@@ -23,12 +23,11 @@ source=(
   "https://raw.githubusercontent.com/armbian/build/main/patch/kernel/rockchip-rk3588-edge/board-khadas-edge2-mcu.patch"
 )
 
+
 sha512sums=(
   'SKIP'
-  'SKIP'
-  'SKIP'
-  'SKIP'
-  'SKIP'
+  '9ec050e491788b8428395fc28b6d8486d64d314d8b85e97d8df30a35bd7b85d2ed84682e7b2eaed7b471b73aa51119e360761a099719eed9952713e0caba17ce'
+  '08537d38426c0bf4f00edcebd7224065f91e0dfce3b5d909f97d3187076297f63e7338b7ba420d70046939c12fbc10e31141602b6bb869b1904ed21fb5a19a05'
 )
 
 
