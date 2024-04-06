@@ -20,7 +20,6 @@ source=(
   "$_url_git"
   'localversion.config'
   'extlinux.panthor.template'
-  "https://raw.githubusercontent.com/armbian/build/main/patch/kernel/rockchip-rk3588-edge/board-khadas-edge2-mcu.patch"
 )
 
 
