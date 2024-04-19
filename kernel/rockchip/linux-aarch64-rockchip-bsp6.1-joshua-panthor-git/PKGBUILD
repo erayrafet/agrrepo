@@ -2,56 +2,46 @@
 # Maintainer: Jat-faan Wong
 # Contributor: Jat-faan Wong, Guoxin "7Ji" Pu, Joshua-Riek 
 
-pkgbase=linux-aarch64-rockchip-bsp6.1-joshua-panthor-git
+pkgbase=linux-aarch64-rockchip-bsp6.1-joshua-git
 pkgname=("${pkgbase}"{,-headers})
-pkgver=6.1.43.r1266133.ga209c7aba62f
+pkgver=6.1.43.r1266030.gd3e66fee
 pkgrel=1
 arch=('aarch64')
 license=('GPL2')
-_url="github.com/Joshua-Riek"
-url="https://$url"
+url="https://github.com/Joshua-Riek"
 _desc="with patches picked by Joshua Riek focusing on RK3588" 
-makedepends=('cpio' 'xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'dtc' 'gitweb-dlagent')
+makedepends=('cpio' 'xmlto' 'docbook-xsl' 'kmod' 'inetutils' 'bc' 'git' 'dtc')
 options=('!strip')
 _srcname='linux-rockchip'
-_url_git="gitweb-dlagent://${_url}/${_srcname}.git#branch=edge2-fan"
-DLAGENTS+=('gitweb-dlagent::/usr/bin/gitweb-dlagent sync %u')
 source=(
-  "$_url_git"
+  "git+${url}/${_srcname}.git#branch=edge2-fan"
   'localversion.config'
-  'extlinux.panthor.template'
 )
-
 
 sha512sums=(
   'SKIP'
-  'SKIP'
-  'SKIP'
+  '9ec050e491788b8428395fc28b6d8486d64d314d8b85e97d8df30a35bd7b85d2ed84682e7b2eaed7b471b73aa51119e360761a099719eed9952713e0caba17ce'
 )
 
 pkgver() {
   cd "${_srcname}"
-  printf "%s.%s%s%s.r%s.%s" \
+  printf "%s.%s%s%s.r%s.g%s" \
     "$(grep '^VERSION = ' Makefile|awk -F' = ' '{print $2}')" \
     "$(grep '^PATCHLEVEL = ' Makefile|awk -F' = ' '{print $2}')" \
     "$(grep '^SUBLEVEL = ' Makefile|awk -F' = ' '{print $2}'|grep -vE '^0$'|sed 's/.*/.\0/')" \
     "$(grep '^EXTRAVERSION = ' Makefile|awk -F' = ' '{print $2}'|tr -d -|sed -E 's/rockchip[0-9]+//')" \
-    "$(gitweb-dlagent version ${_url_git} --pattern \{revision\})" \
-    "$(gitweb-dlagent version ${_url_git} --pattern \{commit:.12s\})"
+    "$(git rev-list --count HEAD)" \
+    "$(git rev-parse --short=8 HEAD)"
 }
 
 prepare() {
   cd "${_srcname}"
-
-  echo "Patching kernel (temporary patches)..."
-  # For Khadas Edge 2
-  patch -p1 < ../board-khadas-edge2-mcu.patch
   
   rm -rf localversion*
   echo "Setting version..."
   echo "-rockchip" > localversion.10-pkgname
-  echo "${pkgbase#linux}" > localversion.20-pkgname
-  
+  #echo "-r$(git rev-list --count HEAD)" > localversion.20-revision
+
   # this is only for local builds so there is no need to integrity check. (if needed)
   for p in ../../custom/*.patch; do
     echo "Custom Patching with ${p}"
@@ -60,14 +50,13 @@ prepare() {
 
   echo "Preparing config..."
   scripts/kconfig/merge_config.sh -m arch/arm64/configs/rockchip_defconfig ../localversion.config
-  make olddefconfig prepare
-
-  make -s kernelrelease > version
-  echo "Prepared for $(<version)"
 }
 
 build() {
   cd "${_srcname}"
+
+  make olddefconfig prepare
+  make -s kernelrelease > version
 
   unset LDFLAGS
   make ${MAKEFLAGS} Image modules
@@ -78,16 +67,12 @@ _package() {
   pkgdesc="The ${_srcname} kernel, ${_desc}"
   depends=('coreutils' 'kmod' 'initramfs')
   optdepends=('wireless-regdb: to set the correct wireless channels of your country')
-  backup=("etc/mkinitcpio.d/${pkgbase}.preset")
 
   cd "${_srcname}"
   
   # install dtbs
   make INSTALL_DTBS_PATH="${pkgdir}/boot/dtbs/${pkgbase}" dtbs_install
 
-  # install extlinux template
-  install -Dm644 ../extlinux.panthor.template "$pkgdir/boot/extlinux/extlinux.panthor.template"
-  
   # install modules
   make INSTALL_MOD_PATH="${pkgdir}/usr" INSTALL_MOD_STRIP=1 modules_install
 
@@ -100,10 +85,6 @@ _package() {
 
   # used by mkinitcpio to name the kernel
   echo "${pkgbase}" | install -D -m 644 /dev/stdin "${_dir_module}/pkgbase"
-
-  # install mkinitcpio preset file
-  sed "s|%PKGBASE%|${pkgbase}|g" ../linux.preset |
-    install -Dm644 /dev/stdin "${pkgdir}/etc/mkinitcpio.d/${pkgbase}.preset"
 }
 
 _package-headers() {
